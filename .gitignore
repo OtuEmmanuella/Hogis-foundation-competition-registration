@@ -1,0 +1,39 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+dist/
+
+# Local env files (DO NOT commit secrets)
+.env
+.env.*       # e.g. .env.local, .env.development
+.env.local
+.env.production.local
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# test / coverage
+coverage/
+
+# local build caches
+.cache/
+.vite/
+turbo/
+.vercel/
+
+# misc
+*.log
+*.tsbuildinfo
