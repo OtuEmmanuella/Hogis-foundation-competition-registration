@@ -34,15 +34,27 @@ const Navigation = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Updated navigation items with proper section mappings
   const navItems = [
     { name: 'About', section: 'about', icon: Trophy },
     { name: 'Rules', section: 'rules', icon: FileText },
     { name: 'Register', section: 'register', icon: Users },
-    { name: 'Contact', section: 'rules', icon: Phone },
+    { name: 'Contact', section: 'contact', icon: Phone }, // Changed to 'contact' section
   ];
 
   const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
+    // Handle contact section specially since it might not exist
+    let targetSection = sectionId;
+    if (sectionId === 'contact') {
+      // You can change this to scroll to footer or any contact section
+      // For now, let's scroll to rules section as fallback
+      const contactElement = document.getElementById('contact');
+      if (!contactElement) {
+        targetSection = 'rules'; // fallback to rules section
+      }
+    }
+    
+    const element = document.getElementById(targetSection);
     if (element) {
       const offsetTop = element.offsetTop - 80; // Account for fixed header
       window.scrollTo({
@@ -52,6 +64,41 @@ const Navigation = () => {
     }
     setIsOpen(false); // Close mobile menu after clicking
   };
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const nav = document.getElementById('mobile-nav');
+      const button = document.getElementById('mobile-menu-button');
+      
+      if (isOpen && nav && button && 
+          !nav.contains(event.target as Node) && 
+          !button.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   return (
     <motion.nav
@@ -78,11 +125,9 @@ const Navigation = () => {
             </div>
             <div className="hidden sm:block">
               <h1 className={`text-lg sm:text-xl font-bold ${scrolled ? 'text-gray-900' : 'text-white'}`}>
-                HOGIS Foundation
+                HOGIS FOUNDATION
               </h1>
-              <p className={`text-xs sm:text-sm ${scrolled ? 'text-gray-600' : 'text-amber-200'}`}>
-                Competition 2025
-              </p>
+              
             </div>
           </motion.button>
 
@@ -115,49 +160,70 @@ const Navigation = () => {
           {/* Mobile Menu Button */}
           <div className="md:hidden">
             <Button
+              id="mobile-menu-button"
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(!isOpen)}
-              className={`${scrolled ? 'text-gray-900' : 'text-white'} w-10 h-10`}
+              className={`${scrolled ? 'text-gray-900' : 'text-white'} w-10 h-10 relative z-50`}
             >
-              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              <motion.div
+                animate={isOpen ? { rotate: 180 } : { rotate: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </motion.div>
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Mobile Navigation */}
-        <AnimatePresence>
-          {isOpen && (
+      {/* Mobile Navigation Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop */}
             <motion.div
-              className="md:hidden bg-white/95 backdrop-blur-md rounded-lg shadow-xl mt-2 overflow-hidden"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
+            />
+            
+            {/* Mobile Menu */}
+            <motion.div
+              id="mobile-nav"
+              className="fixed top-16 sm:top-20 left-4 right-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl overflow-hidden z-40 md:hidden"
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 30 }}
             >
               <div className="py-4">
                 {navItems.map((item, index) => (
                   <motion.button
                     key={item.name}
                     onClick={() => scrollToSection(item.section)}
-                    className={`flex items-center space-x-3 w-full px-6 py-3 text-left transition-colors ${
+                    className={`flex items-center space-x-3 w-full px-6 py-4 text-left transition-all duration-200 ${
                       activeSection === item.section
-                        ? 'text-amber-600 bg-amber-50'
+                        ? 'text-amber-600 bg-amber-50 border-r-4 border-amber-600'
                         : 'text-gray-700 hover:text-amber-600 hover:bg-amber-50'
                     }`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.1 }}
+                    whileHover={{ x: 5 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.name}</span>
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-medium text-base">{item.name}</span>
                   </motion.button>
                 ))}
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 };

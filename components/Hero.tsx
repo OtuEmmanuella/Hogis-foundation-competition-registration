@@ -9,16 +9,25 @@ import { Button } from '@/components/ui/button';
 const Hero = () => {
   const heroRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const floatingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Hero background animation
-      gsap.to(heroRef.current, {
-        backgroundPosition: '100% 0%',
-        duration: 20,
-        repeat: -1,
-        ease: 'none',
-      });
+      // Floating background shapes animation
+      if (floatingRef.current) {
+        const shapes = floatingRef.current.children;
+        Array.from(shapes).forEach((shape, index) => {
+          gsap.to(shape, {
+            y: `${Math.sin(index) * 20}px`,
+            x: `${Math.cos(index) * 15}px`,
+            rotation: 360,
+            duration: 10 + index * 2,
+            repeat: -1,
+            ease: 'none',
+            yoyo: true,
+          });
+        });
+      }
 
       // Title animation
       gsap.fromTo(
@@ -57,24 +66,43 @@ const Hero = () => {
     <section
       id="hero"
       ref={heroRef}
-      className="relative min-h-screen bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 flex items-center justify-center overflow-hidden"
-      style={{
-        backgroundSize: '400% 400%',
-      }}
+      className="relative min-h-screen overflow-hidden"
     >
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0">
-        <div className="absolute top-5 sm:top-10 left-5 sm:left-10 w-20 sm:w-32 h-20 sm:h-32 bg-white/10 rounded-full blur-xl animate-pulse" />
-        <div className="absolute top-1/4 right-10 sm:right-20 w-16 sm:w-24 h-16 sm:h-24 bg-white/5 rounded-full blur-lg animate-bounce" />
-        <div className="absolute bottom-10 sm:bottom-20 left-1/4 w-24 sm:w-40 h-24 sm:h-40 bg-white/5 rounded-full blur-2xl animate-pulse" />
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600">
+        {/* Animated background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent via-white/20 to-transparent transform rotate-12 scale-150"></div>
+        </div>
+        
+        {/* Large decorative shape - top right */}
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-white/10 to-amber-200/20 rounded-full blur-3xl"></div>
+        
+        {/* Large decorative shape - bottom left */}
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-orange-300/20 to-white/10 rounded-full blur-3xl"></div>
+        
+        {/* Medium decorative shapes */}
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-24 h-24 bg-amber-200/20 rounded-full blur-lg"></div>
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+      {/* Floating animated shapes */}
+      <div ref={floatingRef} className="absolute inset-0">
+        <div className="absolute top-20 left-10 w-4 h-4 bg-white/30 rounded-full"></div>
+        <div className="absolute top-40 right-20 w-6 h-6 bg-amber-200/40 rounded-full"></div>
+        <div className="absolute bottom-40 left-20 w-3 h-3 bg-white/40 rounded-full"></div>
+        <div className="absolute bottom-60 right-40 w-5 h-5 bg-amber-100/30 rounded-full"></div>
+        <div className="absolute top-1/3 left-1/3 w-2 h-2 bg-white/50 rounded-full"></div>
+        <div className="absolute top-2/3 right-1/3 w-3 h-3 bg-amber-200/30 rounded-full"></div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: 'easeOut' }}
-          className="max-w-6xl mx-auto"
+          className="max-w-6xl mx-auto text-center"
         >
           {/* Logo and Foundation Name */}
           <motion.div
@@ -164,17 +192,16 @@ const Hero = () => {
         </motion.div>
       </div>
 
-      {/* Scroll Indicator */}
-      {/* <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 1.5 }}
-        className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2"
-      >
-        <div className="w-5 h-8 sm:w-6 sm:h-10 border-2 border-white/50 rounded-full flex justify-center">
-          <div className="w-1 h-2 sm:h-3 bg-white/80 rounded-full mt-1 sm:mt-2 animate-bounce" />
-        </div>
-      </motion.div> */}
+      {/* Animated corner accents */}
+      <div className="absolute top-0 left-0 w-32 h-32">
+        <div className="absolute top-8 left-8 w-16 h-1 bg-white/30 rounded-full transform rotate-45"></div>
+        <div className="absolute top-12 left-4 w-12 h-1 bg-amber-200/40 rounded-full transform rotate-45"></div>
+      </div>
+      
+      <div className="absolute bottom-0 right-0 w-32 h-32">
+        <div className="absolute bottom-8 right-8 w-16 h-1 bg-white/30 rounded-full transform -rotate-45"></div>
+        <div className="absolute bottom-12 right-4 w-12 h-1 bg-amber-200/40 rounded-full transform -rotate-45"></div>
+      </div>
     </section>
   );
 };
