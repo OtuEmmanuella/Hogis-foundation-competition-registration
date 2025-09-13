@@ -733,7 +733,11 @@ const RegistrationForm = () => {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !passportPhotoBase64 || (age && (age < 10 || age > 19))}
+                 disabled={
+                    isSubmitting || 
+                    !passportPhotoBase64 || 
+                    (age !== undefined && (age < 10 || age > 19))
+                  }
                   className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-4 sm:py-6 text-base sm:text-lg shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (

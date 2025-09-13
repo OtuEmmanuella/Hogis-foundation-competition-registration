@@ -6,11 +6,9 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  // Enable experimental features for better server-side compatibility
-  experimental: {
-    serverComponentsExternalPackages: ['nodemailer']
-  },
-  // Add environment variable configuration
+  // Fixed: Use serverExternalPackages instead of experimental.serverComponentsExternalPackages
+  serverExternalPackages: ['nodemailer'],
+  
   env: {
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
