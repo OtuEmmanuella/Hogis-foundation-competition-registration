@@ -120,8 +120,12 @@ const Navigation = () => {
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Trophy className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center shadow-lg p-1">
+              <img 
+                src="https://res.cloudinary.com/dafbbge8r/image/upload/v1757738304/FOUNDATION_jcopok.png" 
+                alt="HOGIS Foundation Logo" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="hidden sm:block">
               <h1 className={`text-lg sm:text-xl font-bold ${scrolled ? 'text-gray-900' : 'text-white'}`}>

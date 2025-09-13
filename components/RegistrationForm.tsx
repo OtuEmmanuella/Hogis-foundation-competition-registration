@@ -629,7 +629,7 @@ const RegistrationForm = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-start space-x-3">
-                      <Checkbox className="text-black"
+                      <Checkbox className="text-black bg-black"
                         id="agreement"
                         onCheckedChange={(checked) => setValue('agreement', checked as boolean)}
                       />
