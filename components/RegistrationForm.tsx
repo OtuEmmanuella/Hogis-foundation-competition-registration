@@ -350,7 +350,7 @@ const RegistrationForm = () => {
                   <CardContent className="space-y-6">
                     <div className="grid md:grid-cols-2 gap-6">
                       <div>
-                        <Label htmlFor="surname">Surname *</Label>
+                        <Label htmlFor="surname" className="text-amber-600">Surname *</Label>
                         <Input
                           id="surname"
                           {...register('surname')}
@@ -361,7 +361,7 @@ const RegistrationForm = () => {
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="otherNames">Other Names *</Label>
+                        <Label htmlFor="otherNames" className="text-amber-600">Other Names *</Label>
                         <Input
                           id="otherNames"
                           {...register('otherNames')}
@@ -375,7 +375,7 @@ const RegistrationForm = () => {
 
                     <div className="grid md:grid-cols-3 gap-6">
                       <div>
-                        <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+                        <Label htmlFor="dateOfBirth" className="text-amber-600">Date of Birth *</Label>
                         <Input
                           id="dateOfBirth"
                           type="date"
@@ -387,7 +387,7 @@ const RegistrationForm = () => {
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="age">Age (10-19) *</Label>
+                        <Label htmlFor="age" className="text-amber-600">Age (10-19) *</Label>
                         <Input
                           id="age"
                           type="number"
@@ -401,7 +401,7 @@ const RegistrationForm = () => {
                         )}
                       </div>
                       <div>
-                        <Label>Gender *</Label>
+                        <Label className="text-amber-600">Gender *</Label>
                         <RadioGroup
                           onValueChange={(value) => setValue('gender', value as 'M' | 'F')}
                           className="flex space-x-6 mt-2"
@@ -423,7 +423,7 @@ const RegistrationForm = () => {
 
                     <div className="grid md:grid-cols-2 gap-6">
                       <div>
-                        <Label htmlFor="phoneNumber">Phone Number *</Label>
+                        <Label htmlFor="phoneNumber" className="text-amber-600">Phone Number *</Label>
                         <div className="relative">
                           <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                           <Input
@@ -438,7 +438,7 @@ const RegistrationForm = () => {
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="emailAddress">Email Address *</Label>
+                        <Label htmlFor="emailAddress" >Email Address *</Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                           <Input
