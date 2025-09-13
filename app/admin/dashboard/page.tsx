@@ -361,19 +361,19 @@ const AdminDashboard = () => {
             </div>
           </div>
           
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
+          <Select value={statusFilter} onValueChange={setStatusFilter} >
+            <SelectTrigger className="w-48 text-black">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Status</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="ACCEPTED">Accepted</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem className="text-black" value="ALL">All Status</SelectItem>
+              <SelectItem  className="text-black"  value="PENDING">Pending</SelectItem>
+              <SelectItem  className="text-black"  value="ACCEPTED">Accepted</SelectItem>
+              <SelectItem  className="text-black"  value="REJECTED">Rejected</SelectItem>
             </SelectContent>
           </Select>
 
-          <Button onClick={exportToCSV} variant="outline" className="flex items-center space-x-2">
+          <Button onClick={exportToCSV} variant="outline" className="flex items-center space-x-2 text-black">
             <Download className="w-4 h-4" />
             <span>Export CSV</span>
           </Button>
@@ -452,7 +452,7 @@ const AdminDashboard = () => {
                                 variant="outline" 
                                 size="sm"
                                 onClick={() => setSelectedRegistration(registration)}
-                              >
+                               className="text-black" >
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
                               </Button>
