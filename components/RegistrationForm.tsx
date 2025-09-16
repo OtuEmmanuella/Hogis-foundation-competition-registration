@@ -71,6 +71,17 @@ const calculateAge = (dateOfBirth: string): number => {
   return age;
 };
 
+// Utility function to chunk large strings for Firestore
+const chunkString = (str: string, maxLength: number = 900000): string[] => {
+  if (str.length <= maxLength) return [str];
+  
+  const chunks: string[] = [];
+  for (let i = 0; i < str.length; i += maxLength) {
+    chunks.push(str.substring(i, i + maxLength));
+  }
+  return chunks;
+};
+
 const RegistrationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -102,47 +113,66 @@ const RegistrationForm = () => {
     }
   }, [dateOfBirth, setValue]);
 
-  // Convert file to base64 and compress if needed
+  // Improved image compression with better error handling
   const convertToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
 
-      img.onload = () => {
-        // Set maximum dimensions for compression
-        const maxWidth = 800;
-        const maxHeight = 800;
-        
-        let { width, height } = img;
+        img.onload = () => {
+          try {
+            // More aggressive compression for large images
+            const maxWidth = 600;
+            const maxHeight = 600;
+            
+            let { width, height } = img;
 
-        // Calculate new dimensions while maintaining aspect ratio
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
+            // Calculate new dimensions while maintaining aspect ratio
+            if (width > height) {
+              if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+              }
+            } else {
+              if (height > maxHeight) {
+                width = (width * maxHeight) / height;
+                height = maxHeight;
+              }
+            }
+
+            // Set canvas dimensions
+            canvas.width = width;
+            canvas.height = height;
+
+            // Draw and compress the image with lower quality for smaller size
+            ctx!.drawImage(img, 0, 0, width, height);
+            
+            // Try different compression levels
+            let base64String = canvas.toDataURL('image/jpeg', 0.6); // Lower quality
+            
+            // If still too large, try even more compression
+            if (base64String.length > 700000) { // ~500KB limit
+              base64String = canvas.toDataURL('image/jpeg', 0.4);
+            }
+            
+            // Final size check
+            if (base64String.length > 900000) { // ~650KB final limit
+              reject(new Error('Image too large even after maximum compression'));
+            } else {
+              resolve(base64String);
+            }
+          } catch (canvasError) {
+            reject(canvasError);
           }
-        } else {
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
-        }
+        };
 
-        // Set canvas dimensions
-        canvas.width = width;
-        canvas.height = height;
-
-        // Draw and compress the image
-        ctx!.drawImage(img, 0, 0, width, height);
-        
-        // Convert to base64 with compression (0.8 quality for JPEG)
-        const base64String = canvas.toDataURL('image/jpeg', 0.8);
-        resolve(base64String);
-      };
-
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = URL.createObjectURL(file);
+      } catch (error) {
+        reject(error);
+      }
     });
   };
 
@@ -151,9 +181,9 @@ const RegistrationForm = () => {
     if (!file) return;
 
     try {
-      // Validate file size (limit to 10MB before compression)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('Photo must be less than 10MB');
+      // Validate file size (limit to 5MB before compression)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Photo must be less than 5MB');
         return;
       }
       
@@ -168,87 +198,127 @@ const RegistrationForm = () => {
       // Convert to base64 with compression
       const base64String = await convertToBase64(file);
       
-      // Check final size after compression (Firestore has 1MB limit per field)
-      const sizeInBytes = Math.ceil(base64String.length * 0.75); // Rough base64 size calculation
-      if (sizeInBytes > 900 * 1024) { // Keep under 900KB to be safe
-        toast.error('Image is too large even after compression. Please use a smaller image.');
-        return;
-      }
-
       setPassportPhotoBase64(base64String);
       setPhotoPreview(base64String);
 
       toast.success('Photo uploaded and compressed successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing image:', error);
-      toast.error('Failed to process image. Please try again.');
+      toast.error(error.message || 'Failed to process image. Please try a smaller image.');
+      
+      // Clear the file input
+      const input = e.target;
+      input.value = '';
     }
   };
 
   const onSubmit = async (data: FormData) => {
-    // Age validation
-    if (data.age < 10) {
-      toast.error('Participants must be at least 10 years old to compete');
-      return;
-    }
-    
-    if (data.age > 19) {
-      toast.error('Participants must be 19 years old or younger to compete');
-      return;
-    }
-
-    if (!passportPhotoBase64) {
-      toast.error('Passport photograph is required');
-      return;
-    }
-    
-    setIsSubmitting(true);
+    // Clear any previous errors
     setError('');
-
+    
     try {
+      // Age validation
+      if (data.age < 10) {
+        toast.error('Participants must be at least 10 years old to compete');
+        return;
+      }
+      
+      if (data.age > 19) {
+        toast.error('Participants must be 19 years old or younger to compete');
+        return;
+      }
+
+      if (!passportPhotoBase64) {
+        toast.error('Passport photograph is required');
+        return;
+      }
+      
+      setIsSubmitting(true);
+
       console.log('Starting form submission...');
       
-      // Prepare registration data with base64 image
-      const registrationData = {
+      // Split large base64 image into chunks if necessary
+      const photoChunks = chunkString(passportPhotoBase64, 800000); // 800KB chunks
+      
+      // Prepare registration data with chunked image data
+      const registrationData: any = {
         fullName: {
-          surname: data.surname,
-          otherNames: data.otherNames,
+          surname: data.surname.trim(),
+          otherNames: data.otherNames.trim(),
         },
         dateOfBirth: data.dateOfBirth,
         age: data.age,
-        phoneNumber: data.phoneNumber,
-        address: data.address,
-        emailAddress: data.emailAddress,
-        // Store image as base64 string directly in Firestore
-        passportPhoto: {
-          data: passportPhotoBase64,
+        phoneNumber: data.phoneNumber.trim(),
+        address: data.address.trim(),
+        emailAddress: data.emailAddress.toLowerCase().trim(),
+        // Handle photo data - if it's small, store directly, otherwise chunk it
+        passportPhoto: photoChunks.length === 1 ? {
+          data: photoChunks[0],
           fileName: photoFileName,
-          uploadedAt: new Date().toISOString()
+          uploadedAt: new Date().toISOString(),
+          chunks: 1
+        } : {
+          fileName: photoFileName,
+          uploadedAt: new Date().toISOString(),
+          chunks: photoChunks.length,
+          // Store first chunk here, rest will be in separate fields
+          data: photoChunks[0]
         },
         category: data.category,
-        currentSchool: data.currentSchool,
-        classLevel: data.classLevel,
-        motivation: data.motivation,
-        parentConsent: isUnder18 ? {
-          parentName: data.parentName || '',
-          parentPhone: data.parentPhone || '',
-          parentSignature: 'Digital Consent Provided',
-        } : undefined,
+        currentSchool: data.currentSchool.trim(),
+        classLevel: data.classLevel.trim(),
+        motivation: data.motivation.trim(),
         agreement: data.agreement,
         participantSignature: 'Digital Signature Provided',
         submissionDate: new Date().toISOString(),
         status: 'PENDING' as const,
       };
 
-      console.log('Saving to Firestore...');
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, 'registered'), registrationData);
-      console.log('Document written with ID: ', docRef.id);
+      // Add parent consent if under 18
+      if (isUnder18) {
+        registrationData.parentConsent = {
+          parentName: (data.parentName || '').trim(),
+          parentPhone: (data.parentPhone || '').trim(),
+          parentSignature: 'Digital Consent Provided',
+        };
+      }
 
-      // Optional: Send confirmation email (remove if using static export)
+      // Add additional photo chunks if needed
+      if (photoChunks.length > 1) {
+        for (let i = 1; i < photoChunks.length; i++) {
+          registrationData[`photoChunk_${i}`] = photoChunks[i];
+        }
+      }
+
+      console.log('Saving to Firestore...');
+      console.log('Data size (approx):', JSON.stringify(registrationData).length, 'characters');
+      
+      // Save to Firestore with retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          const docRef = await addDoc(collection(db, 'registered'), registrationData);
+          console.log('Document written with ID: ', docRef.id);
+          break; // Success, exit retry loop
+        } catch (firestoreError: any) {
+          retryCount++;
+          console.error(`Firestore attempt ${retryCount} failed:`, firestoreError);
+          
+          if (retryCount >= maxRetries) {
+            throw firestoreError; // Re-throw after max retries
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+
+      // Optional: Send confirmation email with better error handling
       try {
         console.log('Attempting to send confirmation email...');
-        const response = await fetch('/api/send-confirmation', {
+        const emailResponse = await fetch('/api/send-confirmation', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -259,8 +329,10 @@ const RegistrationForm = () => {
           }),
         });
 
-        if (!response.ok) {
+        if (!emailResponse.ok) {
           console.warn('Failed to send confirmation email, but registration was saved');
+        } else {
+          console.log('Confirmation email sent successfully');
         }
       } catch (emailError) {
         console.warn('Error sending confirmation email:', emailError);
@@ -273,18 +345,25 @@ const RegistrationForm = () => {
     } catch (error: any) {
       console.error('Error submitting registration:', error);
       
-      // Provide specific error messages
+      // Provide specific error messages based on error type
       let errorMessage = 'Failed to submit registration. Please try again.';
       
       if (error.code === 'permission-denied') {
-        errorMessage = 'Permission denied. Please check your Firestore security rules.';
+        errorMessage = 'Access denied. Please check your internet connection and try again.';
       } else if (error.code === 'unavailable') {
-        errorMessage = 'Service temporarily unavailable. Please try again later.';
-      } else if (error.message?.includes('Maximum call stack size exceeded') || 
-                 error.message?.includes('too large')) {
-        errorMessage = 'Image file is too large. Please use a smaller image.';
-      } else if (error.message?.includes('network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
+        errorMessage = 'Service temporarily unavailable. Please try again in a few minutes.';
+      } else if (error.code === 'deadline-exceeded' || error.code === 'timeout') {
+        errorMessage = 'Request timed out. Please check your internet connection and try again.';
+      } else if (error.message?.includes('document too large') || 
+                 error.message?.includes('too large') ||
+                 error.message?.includes('Maximum document size')) {
+        errorMessage = 'Your photo is too large. Please upload a smaller image and try again.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message?.includes('quota')) {
+        errorMessage = 'Service quota exceeded. Please try again later.';
+      } else if (error.code === 'invalid-argument') {
+        errorMessage = 'Invalid data provided. Please check all fields and try again.';
       }
       
       setError(errorMessage);
@@ -355,7 +434,15 @@ const RegistrationForm = () => {
           >
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-              <p className="text-red-700 text-sm sm:text-base">{error}</p>
+              <div className="flex-1">
+                <p className="text-red-700 text-sm sm:text-base">{error}</p>
+                <button
+                  onClick={() => setError('')}
+                  className="text-red-600 text-sm underline mt-1 hover:text-red-800"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -386,7 +473,7 @@ const RegistrationForm = () => {
                         <Input
                           id="surname"
                           {...register('surname')}
-                          className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.surname ? 'border-red-500' : ''}`}
+                          className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.surname ? 'border-red-500' : ''}`}
                         />
                         {errors.surname && (
                           <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.surname.message}</p>
@@ -397,7 +484,7 @@ const RegistrationForm = () => {
                         <Input
                           id="otherNames"
                           {...register('otherNames')}
-                          className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.otherNames ? 'border-red-500' : ''}`}
+                          className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.otherNames ? 'border-red-500' : ''}`}
                         />
                         {errors.otherNames && (
                           <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.otherNames.message}</p>
@@ -412,7 +499,7 @@ const RegistrationForm = () => {
                           id="dateOfBirth"
                           type="date"
                           {...register('dateOfBirth')}
-                          className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.dateOfBirth ? 'border-red-500' : ''}`}
+                          className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.dateOfBirth ? 'border-red-500' : ''}`}
                         />
                         {errors.dateOfBirth && (
                           <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.dateOfBirth.message}</p>
@@ -426,7 +513,7 @@ const RegistrationForm = () => {
                           min="10"
                           max="19"
                           {...register('age', { valueAsNumber: true })}
-                          className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.age ? 'border-red-500' : ''}`}
+                          className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.age ? 'border-red-500' : ''}`}
                           readOnly
                         />
                         {errors.age && (
@@ -448,7 +535,7 @@ const RegistrationForm = () => {
                           <Input
                             id="phoneNumber"
                             {...register('phoneNumber')}
-                            className={`pl-10 mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.phoneNumber ? 'border-red-500' : ''}`}
+                            className={`pl-10 mt-1 text-gray-900 text-sm sm:text-base ${errors.phoneNumber ? 'border-red-500' : ''}`}
                             placeholder="08012345678"
                           />
                         </div>
@@ -464,7 +551,7 @@ const RegistrationForm = () => {
                             id="emailAddress"
                             type="email"
                             {...register('emailAddress')}
-                            className={`pl-10 mt-1 text-whitee text-sm sm:text-base focus:scale-100 transition-none ${errors.emailAddress ? 'border-red-500' : ''}`}
+                            className={`pl-10 mt-1 text-gray-900 text-sm sm:text-base ${errors.emailAddress ? 'border-red-500' : ''}`}
                             placeholder="your@email.com"
                           />
                         </div>
@@ -481,7 +568,7 @@ const RegistrationForm = () => {
                         <Textarea
                           id="address"
                           {...register('address')}
-                          className={`pl-10 mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none resize-none ${errors.address ? 'border-red-500' : ''}`}
+                          className={`pl-10 mt-1 text-gray-900 text-sm sm:text-base resize-none ${errors.address ? 'border-red-500' : ''}`}
                           placeholder="Enter your complete address"
                           rows={3}
                         />
@@ -542,7 +629,7 @@ const RegistrationForm = () => {
                         <Input
                           id="currentSchool"
                           {...register('currentSchool')}
-                          className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.currentSchool ? 'border-red-500' : ''}`}
+                          className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.currentSchool ? 'border-red-500' : ''}`}
                         />
                         {errors.currentSchool && (
                           <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.currentSchool.message}</p>
@@ -553,7 +640,7 @@ const RegistrationForm = () => {
                         <Input
                           id="classLevel"
                           {...register('classLevel')}
-                          className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.classLevel ? 'border-red-500' : ''}`}
+                          className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.classLevel ? 'border-red-500' : ''}`}
                         />
                         {errors.classLevel && (
                           <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.classLevel.message}</p>
@@ -566,7 +653,7 @@ const RegistrationForm = () => {
                       <Textarea
                         id="motivation"
                         {...register('motivation')}
-                        className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none resize-none ${errors.motivation ? 'border-red-500' : ''}`}
+                        className={`mt-1 text-gray-900 text-sm sm:text-base resize-none ${errors.motivation ? 'border-red-500' : ''}`}
                         placeholder="Share your motivation for participating in this competition..."
                         rows={4}
                       />
@@ -593,7 +680,7 @@ const RegistrationForm = () => {
                           <Input
                             id="parentName"
                             {...register('parentName')}
-                            className={`mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.parentName ? 'border-red-500' : ''}`}
+                            className={`mt-1 text-gray-900 text-sm sm:text-base ${errors.parentName ? 'border-red-500' : ''}`}
                           />
                           {errors.parentName && (
                             <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.parentName.message}</p>
@@ -606,7 +693,7 @@ const RegistrationForm = () => {
                             <Input
                               id="parentPhone"
                               {...register('parentPhone')}
-                              className={`pl-10 mt-1 text-white text-sm sm:text-base focus:scale-100 transition-none ${errors.parentPhone ? 'border-red-500' : ''}`}
+                              className={`pl-10 mt-1 text-gray-900 text-sm sm:text-base ${errors.parentPhone ? 'border-red-500' : ''}`}
                               placeholder="08012345678"
                             />
                           </div>
@@ -629,7 +716,7 @@ const RegistrationForm = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-start space-x-3">
-                      <Checkbox className="text-black"
+                      <Checkbox
                         id="agreement"
                         onCheckedChange={(checked) => setValue('agreement', checked as boolean)}
                       />
@@ -696,7 +783,7 @@ const RegistrationForm = () => {
                                 Required: Passport-style photograph
                               </p>
                               <p className="text-xs text-gray-400 mt-1">
-                                iPhone photos will be automatically compressed
+                                Maximum 5MB - will be compressed automatically
                               </p>
                             </div>
                           </div>
@@ -720,7 +807,7 @@ const RegistrationForm = () => {
                   </CardHeader>
                   <CardContent className="space-y-3 text-xs sm:text-sm text-amber-700">
                     <div>• Fill out the form completely</div>
-                    <div>• Upload a clear passport photograph</div>
+                    <div>• Upload a clear passport photograph (max 5MB)</div>
                     <div>• Images are compressed automatically</div>
                     <div>• Registration deadline: <strong>15th September 2025</strong></div>
                     <div>• Competition is FREE to enter</div>
@@ -733,7 +820,7 @@ const RegistrationForm = () => {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                 disabled={
+                  disabled={
                     isSubmitting || 
                     !passportPhotoBase64 || 
                     (age !== undefined && (age < 10 || age > 19))
@@ -749,6 +836,21 @@ const RegistrationForm = () => {
                     'Submit Registration'
                   )}
                 </Button>
+                
+                {/* Troubleshooting Help */}
+                {error && (
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardHeader>
+                      <CardTitle className="text-blue-800 text-sm">Having trouble?</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-xs text-blue-700 space-y-2">
+                      <div>• Check your internet connection</div>
+                      <div>• Try uploading a smaller photo (under 2MB)</div>
+                      <div>• Make sure all required fields are filled</div>
+                      <div>• If problem persists, try refreshing the page</div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           </form>

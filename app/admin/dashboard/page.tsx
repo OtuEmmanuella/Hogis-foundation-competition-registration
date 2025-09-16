@@ -373,7 +373,7 @@ const AdminDashboard = () => {
             </SelectContent>
           </Select>
 
-          <Button onClick={exportToCSV} variant="outline" className="flex items-center space-x-2 text-black">
+          <Button onClick={exportToCSV} variant="outline" className="flex items-center space-x-2  text-black border-black hover:bg-black hover:text-white transition-colors duration-200">
             <Download className="w-4 h-4" />
             <span>Export CSV</span>
           </Button>
@@ -435,7 +435,7 @@ const AdminDashboard = () => {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 mt-2">
-                              <Badge variant="outline">
+                              <Badge variant="outline" className="text-black border-black">
                                 {registration.category.replace('_', ' ')}
                               </Badge>
                               <Badge className={getStatusColor(currentStatus)}>
@@ -452,7 +452,7 @@ const AdminDashboard = () => {
                                 variant="outline" 
                                 size="sm"
                                 onClick={() => setSelectedRegistration(registration)}
-                               className="text-black" >
+                              className="text-black border-black hover:bg-black hover:text-white transition-colors duration-200">
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
                               </Button>
